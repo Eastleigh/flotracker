@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloom — Private Period & Cycle Tracker</title>
+  <meta name="description" content="Track your period, predict your cycle, and log symptoms — all 100% private. No accounts, no cloud, no data collection.">
+  <meta name="keywords" content="period tracker, cycle tracker, menstrual, ovulation, fertility, symptoms, mood, health, private">
+  <meta property="og:title" content="Bloom — Private Period & Cycle Tracker">
+  <meta property="og:description" content="Track your period, predict your cycle, and log symptoms — all 100% private.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://bloomtracker.health">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    :root {
+      --primary: #E8838F;
+      --primary-light: #F2B5BC;
+      --primary-dark: #C96B76;
+      --secondary: #B5A3E8;
+      --secondary-light: #D4CBF2;
+      --fertile: #7FB285;
+      --ovulation: #F5C842;
+      --bg: #FFF9F5;
+      --surface: #FFFFFF;
+      --text: #2D2D2D;
+      --text-secondary: #7A7A7A;
+      --border: #F0E8E4;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Navigation */
+    nav {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background: rgba(255, 249, 245, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 100;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .nav-brand svg { width: 32px; height: 32px; }
+    .nav-brand span { font-size: 20px; font-weight: 700; }
+
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--text-secondary);
+      font-size: 15px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--primary); }
+
+    /* Hero */
+    .hero {
+      padding: 140px 24px 80px;
+      text-align: center;
+      background: linear-gradient(180deg, var(--bg) 0%, #FFF0F2 50%, var(--bg) 100%);
+    }
+
+    .hero-icon {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 28px;
+      border-radius: 28px;
+      box-shadow: 0 12px 40px rgba(232, 131, 143, 0.25);
+    }
+
+    .hero h1 {
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: clamp(18px, 2.5vw, 22px);
+      color: var(--text-secondary);
+      max-width: 560px;
+      margin: 0 auto 36px;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 16px rgba(232, 131, 143, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(232, 131, 143, 0.4);
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 2px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--primary-light);
+      background: #FFF5F6;
+    }
+
+    /* Privacy Badge */
+    .privacy-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 32px;
+      padding: 10px 20px;
+      background: var(--surface);
+      border-radius: 100px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .privacy-badge .lock { font-size: 16px; }
+
+    /* Features */
+    .features {
+      padding: 80px 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .features h2 {
+      text-align: center;
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .features > p {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 18px;
+      margin-bottom: 56px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 32px;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+    }
+
+    .feature-emoji {
+      font-size: 36px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .feature-card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* Comparison */
+    .comparison {
+      padding: 80px 24px;
+      background: linear-gradient(180deg, var(--bg) 0%, #F5EFFA 50%, var(--bg) 100%);
+    }
+
+    .comparison-inner {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .comparison h2 {
+      text-align: center;
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 40px;
+    }
+
+    .compare-table {
+      width: 100%;
+      background: var(--surface);
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .compare-row {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .compare-row:last-child { border-bottom: none; }
+
+    .compare-row.header {
+      background: #FAFAFA;
+      font-weight: 700;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+
+    .compare-cell {
+      flex: 1;
+      padding: 16px 20px;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+    }
+
+    .compare-cell:first-child {
+      flex: 1.5;
+      font-weight: 500;
+    }
+
+    .compare-cell.bloom { color: var(--fertile); font-weight: 600; }
+    .compare-cell.others { color: var(--text-secondary); }
+
+    /* Phases */
+    .phases {
+      padding: 80px 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .phases h2 {
+      text-align: center;
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .phases > p {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 18px;
+      margin-bottom: 48px;
+    }
+
+    .phase-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .phase-item {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+
+    .phase-emoji { font-size: 32px; margin-bottom: 8px; display: block; }
+    .phase-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .phase-desc { font-size: 13px; color: var(--text-secondary); }
+
+    /* CTA */
+    .cta {
+      padding: 80px 24px;
+      text-align: center;
+      background: linear-gradient(180deg, var(--bg) 0%, #FFF0F2 100%);
+    }
+
+    .cta h2 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .cta p {
+      font-size: 18px;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .store-badges {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .store-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 24px;
+      background: var(--text);
+      color: white;
+      border-radius: 12px;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .store-badge:hover { opacity: 0.85; transform: translateY(-2px); }
+    .store-badge .small { font-size: 11px; font-weight: 400; display: block; }
+
+    .coming-soon {
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 24px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      text-decoration: none;
+      color: var(--text-secondary);
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--primary); }
+
+    .footer-copy {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      .hero { padding: 120px 20px 60px; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .phase-list { grid-template-columns: repeat(2, 1fr); }
+      .compare-cell { padding: 12px 14px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="50" fill="#FFF9F5"/>
+          <ellipse cx="50" cy="32" rx="10" ry="16" fill="#E8838F" transform="rotate(0 50 50)"/>
+          <ellipse cx="50" cy="32" rx="10" ry="16" fill="#F2B5BC" transform="rotate(72 50 50)"/>
+          <ellipse cx="50" cy="32" rx="10" ry="16" fill="#E8838F" transform="rotate(144 50 50)"/>
+          <ellipse cx="50" cy="32" rx="10" ry="16" fill="#F2B5BC" transform="rotate(216 50 50)"/>
+          <ellipse cx="50" cy="32" rx="10" ry="16" fill="#E8838F" transform="rotate(288 50 50)"/>
+          <circle cx="50" cy="50" r="8" fill="#F5C842"/>
+        </svg>
+        <span>Bloom</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#compare">Why Bloom</a></li>
+        <li><a href="#phases">Cycle Phases</a></li>
+        <li><a href="privacy.html">Privacy</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <img src="icon.png" alt="Bloom app icon" class="hero-icon">
+    <h1>Your cycle, <span class="gradient">your way.</span></h1>
+    <p>Track your period, predict your cycle, and log symptoms — all 100% private. No accounts. No cloud. No data collection.</p>
+    <div class="hero-cta">
+      <a href="#download" class="btn btn-primary">Download Bloom</a>
+      <a href="#features" class="btn btn-secondary">Learn More</a>
+    </div>
+    <div class="privacy-badge">
+      <span class="lock">🔒</span>
+      All your data stays on your device. Always.
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <h2>Everything you need</h2>
+    <p>Simple, beautiful, and built for your privacy.</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <span class="feature-emoji">🌸</span>
+        <h3>Cycle Dashboard</h3>
+        <p>See your current cycle day, phase, and a beautiful ring visualization at a glance. Know exactly where you are in your cycle.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-emoji">📅</span>
+        <h3>Smart Calendar</h3>
+        <p>Color-coded monthly view shows period days, fertile window, and ovulation day. Tap any day to see logged details.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-emoji">📝</span>
+        <h3>Full Symptom Logging</h3>
+        <p>Track flow intensity, 10 physical symptoms, 8 moods, intimacy, and free-text notes. Takes seconds, not minutes.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-emoji">📊</span>
+        <h3>Insights & Analytics</h3>
+        <p>Average cycle length, top symptoms and moods over time, cycle regularity score, and educational phase breakdowns.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-emoji">🔮</span>
+        <h3>Cycle Predictions</h3>
+        <p>Smart algorithm learns from your last 3-6 cycles to predict your next period, fertile window, and ovulation date.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-emoji">🔒</span>
+        <h3>100% Private</h3>
+        <p>All data stays on your device. No accounts, no cloud sync, no third-party tracking. Your body, your data, your business.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section class="comparison" id="compare">
+    <div class="comparison-inner">
+      <h2>Why Bloom is different</h2>
+      <div class="compare-table">
+        <div class="compare-row header">
+          <div class="compare-cell"></div>
+          <div class="compare-cell">Bloom</div>
+          <div class="compare-cell">Others</div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-cell">Setup time</div>
+          <div class="compare-cell bloom">30 seconds</div>
+          <div class="compare-cell others">5-15 minutes</div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-cell">Account required</div>
+          <div class="compare-cell bloom">No</div>
+          <div class="compare-cell others">Yes</div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-cell">Data collection</div>
+          <div class="compare-cell bloom">None</div>
+          <div class="compare-cell others">Extensive</div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-cell">Cloud sync</div>
+          <div class="compare-cell bloom">Device only</div>
+          <div class="compare-cell others">Cloud servers</div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-cell">Ads & upsells</div>
+          <div class="compare-cell bloom">None, ever</div>
+          <div class="compare-cell others">Frequent</div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-cell">Price</div>
+          <div class="compare-cell bloom">Free</div>
+          <div class="compare-cell others">$5-10/mo</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phases -->
+  <section class="phases" id="phases">
+    <h2>Understand your cycle</h2>
+    <p>Bloom helps you learn about each phase of your menstrual cycle.</p>
+    <div class="phase-list">
+      <div class="phase-item" style="border-top: 3px solid var(--primary);">
+        <span class="phase-emoji">🌺</span>
+        <div class="phase-name">Menstrual</div>
+        <div class="phase-desc">Days 1-5 — Your period</div>
+      </div>
+      <div class="phase-item" style="border-top: 3px solid var(--secondary);">
+        <span class="phase-emoji">🌱</span>
+        <div class="phase-name">Follicular</div>
+        <div class="phase-desc">Days 6-13 — Energy rises</div>
+      </div>
+      <div class="phase-item" style="border-top: 3px solid var(--fertile);">
+        <span class="phase-emoji">🌸</span>
+        <div class="phase-name">Ovulation</div>
+        <div class="phase-desc">Day ~14 — Peak fertility</div>
+      </div>
+      <div class="phase-item" style="border-top: 3px solid var(--ovulation);">
+        <span class="phase-emoji">🍂</span>
+        <div class="phase-name">Luteal</div>
+        <div class="phase-desc">Days 15-28 — PMS may appear</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA / Download -->
+  <section class="cta" id="download">
+    <h2>Ready to take control?</h2>
+    <p>Download Bloom and start tracking your cycle — simply and privately.</p>
+    <div class="store-badges">
+      <a href="#" class="store-badge">
+        <span>&#63743;</span>
+        <div><span class="small">Download on the</span>App Store</div>
+      </a>
+      <a href="#" class="store-badge">
+        <span>&#9654;</span>
+        <div><span class="small">Get it on</span>Google Play</div>
+      </a>
+    </div>
+    <p class="coming-soon">Coming soon to the App Store and Google Play</p>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-links">
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="#features">Features</a>
+      <a href="#compare">Why Bloom</a>
+      <a href="mailto:fouad.shariff@gmail.com">Contact</a>
+    </div>
+    <p class="footer-copy">&copy; 2026 Bloom. All rights reserved. Your data stays yours.</p>
+  </footer>
+
+</body>
+</html>
