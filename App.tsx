@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -24,6 +25,29 @@ const TAB_ICONS: Record<string, { focused: IoniconsName; default: IoniconsName }
   Settings: { focused: 'settings', default: 'settings-outline' },
 };
 
+/**
+ * Conditionally wraps children with SuperwallProvider on native platforms.
+ * On web, Superwall native modules are not available, so we skip the provider.
+ */
+function MaybeSuperwallProvider({ children }: { children: React.ReactNode }) {
+  if (Platform.OS === 'web') {
+    return <>{children}</>;
+  }
+
+  // Dynamic import to avoid loading native module on web
+  const { SuperwallProvider } = require('expo-superwall');
+  return (
+    <SuperwallProvider
+      apiKeys={{
+        ios: process.env.EXPO_PUBLIC_SUPERWALL_IOS_KEY || 'YOUR_SUPERWALL_IOS_KEY',
+        android: process.env.EXPO_PUBLIC_SUPERWALL_ANDROID_KEY || 'YOUR_SUPERWALL_ANDROID_KEY',
+      }}
+    >
+      {children}
+    </SuperwallProvider>
+  );
+}
+
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -40,15 +64,15 @@ export default function App() {
 
   if (showOnboarding) {
     return (
-      <>
+      <MaybeSuperwallProvider>
         <StatusBar style="dark" />
         <OnboardingScreen onComplete={() => setShowOnboarding(false)} />
-      </>
+      </MaybeSuperwallProvider>
     );
   }
 
   return (
-    <>
+    <MaybeSuperwallProvider>
       <StatusBar style="dark" />
       <NavigationContainer>
         <Tab.Navigator
@@ -86,6 +110,6 @@ export default function App() {
           <Tab.Screen name="Settings" component={SettingsScreen} />
         </Tab.Navigator>
       </NavigationContainer>
-    </>
+    </MaybeSuperwallProvider>
   );
 }

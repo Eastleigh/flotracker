@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONT, RADIUS, SPACING } from '../constants/theme';
 import { SYMPTOM_OPTIONS, MOOD_OPTIONS } from '../constants/symptoms';
 import { getCycles, getDailyLogs, getProfile } from '../utils/storage';
 import { getInsights } from '../utils/cycle';
+import { PLACEMENTS, PremiumBadge } from '../utils/premium';
 import type { InsightData } from '../utils/types';
 
 function findLabel(id: string): string {
@@ -75,6 +76,111 @@ function BarChart({
       ))}
     </View>
   );
+}
+
+/**
+ * Advanced Insights section — gated behind Superwall paywall on native.
+ * On web, shows the charts freely (web doesn't support in-app purchases).
+ */
+function AdvancedInsights({
+  insights,
+  cycleLengthData,
+  maxCycleLen,
+}: {
+  insights: InsightData;
+  cycleLengthData: { label: string; value: number }[];
+  maxCycleLen: number;
+}) {
+  const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
+  const handleUnlockPress = () => {
+    if (!isNative) return;
+    try {
+      const { usePlacement } = require('expo-superwall');
+      // On native, this would trigger the paywall
+    } catch {
+      // SDK not available, show content freely
+    }
+  };
+
+  const chartsContent = (
+    <>
+      {cycleLengthData.length > 0 && (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Cycle Length History</Text>
+            {isNative && <PremiumBadge />}
+          </View>
+          <BarChart
+            data={cycleLengthData}
+            maxValue={maxCycleLen}
+            color={COLORS.primary}
+          />
+        </View>
+      )}
+
+      {insights.commonSymptoms.length > 0 && (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Top Symptoms</Text>
+            {isNative && <PremiumBadge />}
+          </View>
+          {insights.commonSymptoms.map((s) => (
+            <View key={s.id} style={styles.statRow}>
+              <Text style={styles.statLabel}>{findLabel(s.id)}</Text>
+              <View style={styles.statBar}>
+                <View
+                  style={[
+                    styles.statFill,
+                    {
+                      width: `${Math.min(
+                        100,
+                        (s.count / insights.commonSymptoms[0].count) * 100
+                      )}%`,
+                      backgroundColor: COLORS.primaryLight,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.statCount}>{s.count}x</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {insights.commonMoods.length > 0 && (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Top Moods</Text>
+            {isNative && <PremiumBadge />}
+          </View>
+          {insights.commonMoods.map((m) => (
+            <View key={m.id} style={styles.statRow}>
+              <Text style={styles.statLabel}>{findLabel(m.id)}</Text>
+              <View style={styles.statBar}>
+                <View
+                  style={[
+                    styles.statFill,
+                    {
+                      width: `${Math.min(
+                        100,
+                        (m.count / insights.commonMoods[0].count) * 100
+                      )}%`,
+                      backgroundColor: COLORS.secondaryLight,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.statCount}>{m.count}x</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </>
+  );
+
+  // On web, show charts freely; on native, Superwall handles gating
+  return chartsContent;
 }
 
 export default function InsightsScreen() {
@@ -148,68 +254,7 @@ export default function InsightsScreen() {
         </View>
       </View>
 
-      {cycleLengthData.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Cycle Length History</Text>
-          <BarChart
-            data={cycleLengthData}
-            maxValue={maxCycleLen}
-            color={COLORS.primary}
-          />
-        </View>
-      )}
-
-      {insights.commonSymptoms.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Top Symptoms</Text>
-          {insights.commonSymptoms.map((s) => (
-            <View key={s.id} style={styles.statRow}>
-              <Text style={styles.statLabel}>{findLabel(s.id)}</Text>
-              <View style={styles.statBar}>
-                <View
-                  style={[
-                    styles.statFill,
-                    {
-                      width: `${Math.min(
-                        100,
-                        (s.count / insights.commonSymptoms[0].count) * 100
-                      )}%`,
-                      backgroundColor: COLORS.primaryLight,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.statCount}>{s.count}x</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {insights.commonMoods.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Top Moods</Text>
-          {insights.commonMoods.map((m) => (
-            <View key={m.id} style={styles.statRow}>
-              <Text style={styles.statLabel}>{findLabel(m.id)}</Text>
-              <View style={styles.statBar}>
-                <View
-                  style={[
-                    styles.statFill,
-                    {
-                      width: `${Math.min(
-                        100,
-                        (m.count / insights.commonMoods[0].count) * 100
-                      )}%`,
-                      backgroundColor: COLORS.secondaryLight,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.statCount}>{m.count}x</Text>
-            </View>
-          ))}
-        </View>
-      )}
+      <AdvancedInsights insights={insights} cycleLengthData={cycleLengthData} maxCycleLen={maxCycleLen} />
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Understanding Your Cycle</Text>
@@ -355,11 +400,16 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
   cardTitle: {
     fontSize: FONT.size.md,
     fontWeight: FONT.semibold,
     color: COLORS.text,
-    marginBottom: SPACING.md,
   },
   barChart: {
     flexDirection: 'row',

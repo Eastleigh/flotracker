@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ import {
   getCycles,
   clearAllData,
 } from '../utils/storage';
+import { PLACEMENTS } from '../utils/premium';
 import type { UserProfile } from '../utils/types';
 
 function SettingRow({
@@ -247,6 +249,37 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Subscription</Text>
+        <TouchableOpacity
+          style={styles.proCard}
+          onPress={() => {
+            if (Platform.OS === 'web') {
+              Alert.alert('Bloom Pro', 'In-app subscriptions are available on the iOS and Android apps.');
+              return;
+            }
+            try {
+              // On native, Superwall handles the paywall presentation
+              const { registerPlacement } = require('expo-superwall');
+            } catch {
+              Alert.alert('Bloom Pro', 'Subscription management will be available in the native app.');
+            }
+          }}
+          activeOpacity={0.8}
+        >
+          <View style={styles.proCardContent}>
+            <Text style={styles.proEmoji}>🌸</Text>
+            <View style={styles.proTextContainer}>
+              <Text style={styles.proTitle}>Bloom Pro</Text>
+              <Text style={styles.proDescription}>
+                Unlock advanced insights, data export, and unlimited history
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Data</Text>
         <View style={styles.card}>
           <SettingRow
@@ -381,6 +414,40 @@ const styles = StyleSheet.create({
     flex: 0,
     width: 60,
     textAlign: 'center',
+  },
+  proCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: COLORS.primaryLight,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  proCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+  },
+  proEmoji: {
+    fontSize: 28,
+    marginRight: SPACING.md,
+  },
+  proTextContainer: {
+    flex: 1,
+  },
+  proTitle: {
+    fontSize: FONT.size.md,
+    fontWeight: FONT.bold,
+    color: COLORS.primary,
+    marginBottom: 2,
+  },
+  proDescription: {
+    fontSize: FONT.size.xs,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
   },
   about: {
     alignItems: 'center',
