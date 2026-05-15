@@ -17,6 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.bloom.periodtracker",
       "buildNumber": "1",
+      "appleTeamId": "47XHCG7W8P",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
