@@ -25,10 +25,12 @@
     "production": {
       "ios": {
         "appleId": "dxinone@gmail.com",
-        "appleTeamId": "47XHCG7W8P"
+        "appleTeamId": "47XHCG7W8P",
+        "ascApiKeyPath": "./AuthKey_549KF7897J.p8",
+        "ascApiKeyIssuerId": "bf08c136-7c9e-417d-aa12-dbf45517f02f",
+        "ascApiKeyId": "549KF7897J"
       },
       "android": {
-        "serviceAccountKeyPath": "",
         "track": "internal"
       }
     }

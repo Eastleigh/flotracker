@@ -50,6 +50,12 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "269ec9cd-7a8e-468b-8740-ab30b81aae63"
+      }
+    },
+    "owner": "jamrock"
   }
 }
