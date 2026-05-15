@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bloom.periodtracker",
+      "bundleIdentifier": "com.bloomtracker.app",
       "buildNumber": "1",
       "appleTeamId": "47XHCG7W8P",
       "infoPlist": {
@@ -28,7 +28,7 @@
         "backgroundColor": "#FFF9F5"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.bloom.periodtracker",
+      "package": "com.bloomtracker.app",
       "versionCode": 1,
       "permissions": []
     },
