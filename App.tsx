@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from './src/constants/theme';
 import { getProfile } from './src/utils/storage';
+import { PLACEMENTS } from './src/utils/premium';
 import HomeScreen from './src/screens/HomeScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import LogScreen from './src/screens/LogScreen';
@@ -28,24 +29,65 @@ const TAB_ICONS: Record<string, { focused: IoniconsName; default: IoniconsName }
 /**
  * Conditionally wraps children with SuperwallProvider on native platforms.
  * On web, Superwall native modules are not available, so we skip the provider.
+ * Includes preloading of paywalls for instant display and error handling.
  */
 function MaybeSuperwallProvider({ children }: { children: React.ReactNode }) {
   if (Platform.OS === 'web') {
     return <>{children}</>;
   }
 
-  // Dynamic import to avoid loading native module on web
-  const { SuperwallProvider } = require('expo-superwall');
-  return (
-    <SuperwallProvider
-      apiKeys={{
-        ios: process.env.EXPO_PUBLIC_SUPERWALL_IOS_KEY || 'YOUR_SUPERWALL_IOS_KEY',
-        android: process.env.EXPO_PUBLIC_SUPERWALL_ANDROID_KEY || 'YOUR_SUPERWALL_ANDROID_KEY',
-      }}
-    >
-      {children}
-    </SuperwallProvider>
-  );
+  try {
+    const { SuperwallProvider } = require('expo-superwall');
+    return (
+      <SuperwallProvider
+        apiKeys={{
+          ios: process.env.EXPO_PUBLIC_SUPERWALL_IOS_KEY || 'pk_p09QrRkLdq3_B71bXtEzW',
+          android: process.env.EXPO_PUBLIC_SUPERWALL_ANDROID_KEY || '',
+        }}
+        options={{
+          logging: { level: 'warn' },
+        }}
+        onConfigurationError={(error: Error) => {
+          console.warn('[Superwall] Configuration error:', error.message);
+        }}
+      >
+        <SuperwallPreloader />
+        {children}
+      </SuperwallProvider>
+    );
+  } catch (e) {
+    console.warn('[Superwall] Failed to load provider:', e);
+    return <>{children}</>;
+  }
+}
+
+/**
+ * Preloads paywalls after Superwall is configured for instant display.
+ */
+function SuperwallPreloader() {
+  if (Platform.OS === 'web') return null;
+
+  try {
+    const { useSuperwall } = require('expo-superwall');
+    const PreloaderInner = () => {
+      const superwall = useSuperwall();
+
+      useEffect(() => {
+        if (superwall.isConfigured && !superwall.isLoading) {
+          const placements = Object.values(PLACEMENTS) as string[];
+          superwall.preloadPaywalls(placements).catch((err: Error) => {
+            console.warn('[Superwall] Preload error:', err.message);
+          });
+        }
+      }, [superwall.isConfigured, superwall.isLoading]);
+
+      return null;
+    };
+
+    return <PreloaderInner />;
+  } catch {
+    return null;
+  }
 }
 
 export default function App() {

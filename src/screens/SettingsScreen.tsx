@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +20,7 @@ import {
   getCycles,
   clearAllData,
 } from '../utils/storage';
-import { PLACEMENTS } from '../utils/premium';
+import { PLACEMENTS, PaywallLoading } from '../utils/premium';
 import type { UserProfile } from '../utils/types';
 
 function SettingRow({
@@ -51,6 +52,169 @@ function SettingRow({
         <Ionicons name="chevron-forward" size={18} color={COLORS.textLight} />
       )}
     </TouchableOpacity>
+  );
+}
+
+/**
+ * Subscription section with proper Superwall integration.
+ * Handles paywall triggering, loading states, and Restore Purchases.
+ */
+function SubscriptionSection() {
+  const [isLoadingPaywall, setIsLoadingPaywall] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
+  let registerPlacement: ((args: { placement: string; feature?: () => void }) => Promise<void>) | null = null;
+  let restorePurchases: (() => Promise<{ restored: boolean }>) | null = null;
+
+  if (isNative) {
+    try {
+      const { usePlacement, useSuperwall } = require('expo-superwall');
+      const placement = usePlacement({
+        onPresent: () => {
+          setIsLoadingPaywall(false);
+        },
+        onDismiss: () => {
+          setIsLoadingPaywall(false);
+        },
+        onSkip: () => {
+          setIsLoadingPaywall(false);
+        },
+        onError: (error: string) => {
+          setIsLoadingPaywall(false);
+          Alert.alert('Error', 'Unable to load subscription options. Please try again later.');
+          console.warn('[Superwall] Placement error:', error);
+        },
+      });
+      registerPlacement = placement.registerPlacement;
+
+      const superwall = useSuperwall();
+      restorePurchases = superwall.restorePurchases;
+    } catch (e) {
+      console.warn('[Superwall] Hook initialization error:', e);
+    }
+  }
+
+  const handleBloomProPress = async () => {
+    if (!isNative) {
+      Alert.alert('Bloom Pro', 'In-app subscriptions are available on the iOS and Android apps.');
+      return;
+    }
+
+    if (!registerPlacement) {
+      Alert.alert('Bloom Pro', 'Subscription service is initializing. Please try again in a moment.');
+      return;
+    }
+
+    setIsLoadingPaywall(true);
+
+    // Timeout after 10 seconds to prevent infinite loading
+    const timeout = setTimeout(() => {
+      setIsLoadingPaywall(false);
+      Alert.alert(
+        'Connection Issue',
+        'Unable to load subscription options. Please check your internet connection and try again.'
+      );
+    }, 10000);
+
+    try {
+      await registerPlacement({
+        placement: PLACEMENTS.ONBOARDING_OFFER,
+        feature: () => {
+          // User is already subscribed — no paywall shown
+          clearTimeout(timeout);
+          setIsLoadingPaywall(false);
+          Alert.alert('Bloom Pro', 'You already have an active Bloom Pro subscription!');
+        },
+      });
+      clearTimeout(timeout);
+    } catch (err) {
+      clearTimeout(timeout);
+      setIsLoadingPaywall(false);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!isNative) {
+      Alert.alert('Restore Purchases', 'In-app purchases are available on the iOS and Android apps.');
+      return;
+    }
+
+    if (!restorePurchases) {
+      Alert.alert('Restore Purchases', 'Subscription service is initializing. Please try again in a moment.');
+      return;
+    }
+
+    setIsRestoring(true);
+
+    // Timeout after 15 seconds
+    const timeout = setTimeout(() => {
+      setIsRestoring(false);
+      Alert.alert(
+        'Connection Issue',
+        'Unable to restore purchases. Please check your internet connection and try again.'
+      );
+    }, 15000);
+
+    try {
+      const result = await restorePurchases();
+      clearTimeout(timeout);
+      setIsRestoring(false);
+
+      if (result && result.restored) {
+        Alert.alert('Restored!', 'Your Bloom Pro subscription has been restored successfully.');
+      } else {
+        Alert.alert('No Purchases Found', 'No previous Bloom Pro subscription was found for this Apple ID.');
+      }
+    } catch (err) {
+      clearTimeout(timeout);
+      setIsRestoring(false);
+      Alert.alert('Restore Failed', 'Unable to restore purchases. Please try again later.');
+    }
+  };
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Subscription</Text>
+
+      {isLoadingPaywall && <PaywallLoading />}
+
+      <TouchableOpacity
+        style={styles.proCard}
+        onPress={handleBloomProPress}
+        activeOpacity={0.7}
+        disabled={isLoadingPaywall}
+      >
+        <View style={styles.proCardContent}>
+          <Text style={styles.proEmoji}>🌸</Text>
+          <View style={styles.proTextContainer}>
+            <Text style={styles.proTitle}>Bloom Pro</Text>
+            <Text style={styles.proDescription}>
+              Unlock advanced insights, data export, and unlimited history
+            </Text>
+          </View>
+          {isLoadingPaywall ? (
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          ) : (
+            <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+          )}
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.restoreButton}
+        onPress={handleRestore}
+        activeOpacity={0.7}
+        disabled={isRestoring}
+      >
+        {isRestoring ? (
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        ) : (
+          <Text style={styles.restoreText}>Restore Purchases</Text>
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -248,36 +412,7 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Subscription</Text>
-        <TouchableOpacity
-          style={styles.proCard}
-          onPress={() => {
-            if (Platform.OS === 'web') {
-              Alert.alert('Bloom Pro', 'In-app subscriptions are available on the iOS and Android apps.');
-              return;
-            }
-            try {
-              // On native, Superwall handles the paywall presentation
-              const { registerPlacement } = require('expo-superwall');
-            } catch {
-              Alert.alert('Bloom Pro', 'Subscription management will be available in the native app.');
-            }
-          }}
-          activeOpacity={0.8}
-        >
-          <View style={styles.proCardContent}>
-            <Text style={styles.proEmoji}>🌸</Text>
-            <View style={styles.proTextContainer}>
-              <Text style={styles.proTitle}>Bloom Pro</Text>
-              <Text style={styles.proDescription}>
-                Unlock advanced insights, data export, and unlimited history
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
-          </View>
-        </TouchableOpacity>
-      </View>
+      <SubscriptionSection />
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Data</Text>
@@ -448,6 +583,16 @@ const styles = StyleSheet.create({
     fontSize: FONT.size.xs,
     color: COLORS.textSecondary,
     lineHeight: 16,
+  },
+  restoreButton: {
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  restoreText: {
+    fontSize: FONT.size.sm,
+    color: COLORS.primary,
+    fontWeight: FONT.medium,
   },
   about: {
     alignItems: 'center',

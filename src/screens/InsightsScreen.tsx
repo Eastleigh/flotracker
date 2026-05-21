@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONT, RADIUS, SPACING } from '../constants/theme';
 import { SYMPTOM_OPTIONS, MOOD_OPTIONS } from '../constants/symptoms';
 import { getCycles, getDailyLogs, getProfile } from '../utils/storage';
 import { getInsights } from '../utils/cycle';
-import { PLACEMENTS, PremiumBadge } from '../utils/premium';
+import { PLACEMENTS, PremiumBadge, PaywallLoading } from '../utils/premium';
 import type { InsightData } from '../utils/types';
 
 function findLabel(id: string): string {
@@ -79,10 +79,10 @@ function BarChart({
 }
 
 /**
- * Advanced Insights section — gated behind Superwall paywall on native.
- * On web, shows the charts freely (web doesn't support in-app purchases).
+ * Advanced Insights section with paywall gating on native.
+ * Uses Superwall's usePlacement hook to trigger the paywall properly.
  */
-function AdvancedInsights({
+function AdvancedInsightsNative({
   insights,
   cycleLengthData,
   maxCycleLen,
@@ -91,25 +91,164 @@ function AdvancedInsights({
   cycleLengthData: { label: string; value: number }[];
   maxCycleLen: number;
 }) {
-  const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+  const [isLoadingPaywall, setIsLoadingPaywall] = useState(false);
 
-  const handleUnlockPress = () => {
-    if (!isNative) return;
+  let registerPlacement: ((args: { placement: string; feature?: () => void }) => Promise<void>) | null = null;
+
+  try {
+    const { usePlacement } = require('expo-superwall');
+    const placement = usePlacement({
+      onPresent: () => {
+        setIsLoadingPaywall(false);
+      },
+      onDismiss: () => {
+        setIsLoadingPaywall(false);
+      },
+      onSkip: () => {
+        setIsLoadingPaywall(false);
+      },
+      onError: (error: string) => {
+        setIsLoadingPaywall(false);
+        Alert.alert('Error', 'Unable to load subscription options. Please try again later.');
+        console.warn('[Superwall] Placement error:', error);
+      },
+    });
+    registerPlacement = placement.registerPlacement;
+  } catch {
+    // SDK not available — show content freely
+  }
+
+  const handleUnlock = async () => {
+    if (!registerPlacement) return;
+
+    setIsLoadingPaywall(true);
+
+    // Timeout after 10 seconds to prevent infinite loading
+    const timeout = setTimeout(() => {
+      setIsLoadingPaywall(false);
+      Alert.alert(
+        'Connection Issue',
+        'Unable to load subscription options. Please check your internet connection and try again.'
+      );
+    }, 10000);
+
     try {
-      const { usePlacement } = require('expo-superwall');
-      // On native, this would trigger the paywall
-    } catch {
-      // SDK not available, show content freely
+      await registerPlacement({
+        placement: PLACEMENTS.INSIGHTS_CHARTS,
+        feature: () => {
+          // User already has access — no paywall shown
+          clearTimeout(timeout);
+          setIsLoadingPaywall(false);
+        },
+      });
+      clearTimeout(timeout);
+    } catch (err) {
+      clearTimeout(timeout);
+      setIsLoadingPaywall(false);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     }
   };
 
-  const chartsContent = (
+  return (
+    <>
+      {isLoadingPaywall && <PaywallLoading />}
+
+      {cycleLengthData.length > 0 && (
+        <TouchableOpacity style={styles.card} onPress={handleUnlock} activeOpacity={0.8}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Cycle Length History</Text>
+            <PremiumBadge />
+          </View>
+          <BarChart
+            data={cycleLengthData}
+            maxValue={maxCycleLen}
+            color={COLORS.primary}
+          />
+          <View style={styles.unlockHint}>
+            <Text style={styles.unlockHintText}>Tap to unlock detailed insights</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {insights.commonSymptoms.length > 0 && (
+        <TouchableOpacity style={styles.card} onPress={handleUnlock} activeOpacity={0.8}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Top Symptoms</Text>
+            <PremiumBadge />
+          </View>
+          {insights.commonSymptoms.map((s) => (
+            <View key={s.id} style={styles.statRow}>
+              <Text style={styles.statLabel}>{findLabel(s.id)}</Text>
+              <View style={styles.statBar}>
+                <View
+                  style={[
+                    styles.statFill,
+                    {
+                      width: `${Math.min(
+                        100,
+                        (s.count / insights.commonSymptoms[0].count) * 100
+                      )}%`,
+                      backgroundColor: COLORS.primaryLight,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.statCount}>{s.count}x</Text>
+            </View>
+          ))}
+        </TouchableOpacity>
+      )}
+
+      {insights.commonMoods.length > 0 && (
+        <TouchableOpacity style={styles.card} onPress={handleUnlock} activeOpacity={0.8}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Top Moods</Text>
+            <PremiumBadge />
+          </View>
+          {insights.commonMoods.map((m) => (
+            <View key={m.id} style={styles.statRow}>
+              <Text style={styles.statLabel}>{findLabel(m.id)}</Text>
+              <View style={styles.statBar}>
+                <View
+                  style={[
+                    styles.statFill,
+                    {
+                      width: `${Math.min(
+                        100,
+                        (m.count / insights.commonMoods[0].count) * 100
+                      )}%`,
+                      backgroundColor: COLORS.secondaryLight,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.statCount}>{m.count}x</Text>
+            </View>
+          ))}
+        </TouchableOpacity>
+      )}
+    </>
+  );
+}
+
+/**
+ * Web version — shows charts freely (no in-app purchases on web).
+ */
+function AdvancedInsightsWeb({
+  insights,
+  cycleLengthData,
+  maxCycleLen,
+}: {
+  insights: InsightData;
+  cycleLengthData: { label: string; value: number }[];
+  maxCycleLen: number;
+}) {
+  return (
     <>
       {cycleLengthData.length > 0 && (
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Cycle Length History</Text>
-            {isNative && <PremiumBadge />}
           </View>
           <BarChart
             data={cycleLengthData}
@@ -123,7 +262,6 @@ function AdvancedInsights({
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Top Symptoms</Text>
-            {isNative && <PremiumBadge />}
           </View>
           {insights.commonSymptoms.map((s) => (
             <View key={s.id} style={styles.statRow}>
@@ -152,7 +290,6 @@ function AdvancedInsights({
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Top Moods</Text>
-            {isNative && <PremiumBadge />}
           </View>
           {insights.commonMoods.map((m) => (
             <View key={m.id} style={styles.statRow}>
@@ -178,9 +315,6 @@ function AdvancedInsights({
       )}
     </>
   );
-
-  // On web, show charts freely; on native, Superwall handles gating
-  return chartsContent;
 }
 
 export default function InsightsScreen() {
@@ -225,6 +359,8 @@ export default function InsightsScreen() {
   }));
   const maxCycleLen = Math.max(...insights.cycleLengths, 35);
 
+  const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
   return (
     <ScrollView
       style={styles.container}
@@ -254,7 +390,19 @@ export default function InsightsScreen() {
         </View>
       </View>
 
-      <AdvancedInsights insights={insights} cycleLengthData={cycleLengthData} maxCycleLen={maxCycleLen} />
+      {isNative ? (
+        <AdvancedInsightsNative
+          insights={insights}
+          cycleLengthData={cycleLengthData}
+          maxCycleLen={maxCycleLen}
+        />
+      ) : (
+        <AdvancedInsightsWeb
+          insights={insights}
+          cycleLengthData={cycleLengthData}
+          maxCycleLen={maxCycleLen}
+        />
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Understanding Your Cycle</Text>
@@ -472,6 +620,15 @@ const styles = StyleSheet.create({
     fontWeight: FONT.semibold,
     width: 30,
     textAlign: 'right',
+  },
+  unlockHint: {
+    marginTop: SPACING.sm,
+    alignItems: 'center',
+  },
+  unlockHintText: {
+    fontSize: FONT.size.xs,
+    color: COLORS.primary,
+    fontWeight: FONT.medium,
   },
   phaseInfo: {
     flexDirection: 'row',
